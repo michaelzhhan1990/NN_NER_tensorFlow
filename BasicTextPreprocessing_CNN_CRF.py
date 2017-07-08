@@ -31,7 +31,7 @@ label_name ="ner"
 label_alphabet = Alphabet(label_name)
 logger = utils.get_logger("MainCode")
 embedding = "glove"
-embedding_path = "glove.6B.100d.gz"
+embedding_path = "/data/experimentation/hanzhan/src/Neural_NER/glove.6B.100d.gz"
 
 
 
@@ -39,9 +39,9 @@ oov = 'embedding'
 fine_tune = True
 # Model Hyperparameters
 #tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)") #not used 
-tf.flags.DEFINE_string("train_path", "eng.train.iobes.act", "Train Path")
-tf.flags.DEFINE_string("test_path", "eng.testa.iobes.act", "Test Path")
-tf.flags.DEFINE_string("dev_path", "eng.testb.iobes.act", "dev Path")
+tf.flags.DEFINE_string("train_path", "/data/experimentation/hanzhan/src/Neural_NER/data/eng.train.txt", "Train Path")
+tf.flags.DEFINE_string("test_path", "/data/experimentation/hanzhan/src/Neural_NER/data/eng.testa.iobes.act_part", "Test Path")
+tf.flags.DEFINE_string("dev_path", "/data/experimentation/hanzhan/src/Neural_NER/data/eng.testb.iobes.act_part", "dev Path")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("grad_clip", 5, "value for gradient clipping to avoid exploding/vanishing gradient(default: 5.0) in LSTM")
 tf.flags.DEFINE_float("max_global_clip", 5.0, "value for gradient clipping to avoid exploding/vanishing gradient overall(default: 1.0)")
@@ -186,6 +186,7 @@ with tf.Session(config=session_conf) as sess:
     best_accuracy_test = 0 
     best_overall_accuracy_test = 0
     best_step = 0
+    best_step_test=0
     BiLSTM = network.textBiLSTM(sequence_length=max_length, num_classes=num_classes, word_vocab_size=word_vocab_size,
       word_embedd_dim=embedd_dim,n_hidden_LSTM =FLAGS.n_hidden_LSTM,max_char_per_word=max_char_per_word,
       char_vocab_size=char_vocab_size,char_embedd_dim = FLAGS.char_embedd_dim,grad_clip=FLAGS.grad_clip,num_filters=FLAGS.num_filters,filter_size= FLAGS.filter_size)
@@ -218,7 +219,9 @@ with tf.Session(config=session_conf) as sess:
 
     #This is the second part of minimize()
     train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+
     # Keep track of gradient values and sparsity (optional)
+    '''
     grad_summaries = []
     for g, v in grads_and_vars:
         if g is not None:
@@ -227,7 +230,7 @@ with tf.Session(config=session_conf) as sess:
             grad_summaries.append(grad_hist_summary)
             grad_summaries.append(sparsity_summary)
     grad_summaries_merged = tf.summary.merge(grad_summaries)
-    
+    '''
 
     
     # Summaries for loss and accuracy
@@ -235,7 +238,7 @@ with tf.Session(config=session_conf) as sess:
     #acc_summary = tf.summary.scalar("accuracy", BiLSTM.accuracy)  
 
     # Train Summaries
-    train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
+    #train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
     train_summary_dir = os.path.join(out_dir, "summaries", "train")
     train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
@@ -278,13 +281,14 @@ with tf.Session(config=session_conf) as sess:
         """
         feed_dict=af.create_feed_Dict(BiLSTM,PadZeroBegin,max_length,x_batch,y_batch,act_seq_lengths,dropout_keep_prob,embedd_table,char_batch,char_embedd_table)
         
-        _, step, summaries, loss,logits,transition_params = session.run(
-            [train_op, global_step, train_summary_op, BiLSTM.loss,BiLSTM.logits,BiLSTM.transition_params],
+        _, step, loss,logits,transition_params = session.run(
+            [train_op, global_step,BiLSTM.loss,BiLSTM.logits,BiLSTM.transition_params],
             feed_dict)
-
+        ##, summaries
+        ##train_summary_op,
         time_str = datetime.datetime.now().isoformat()
         print("{}: step {}, loss {:g}".format(time_str, step, loss))
-        train_summary_writer.add_summary(summaries, step)
+        ##train_summary_writer.add_summary(summaries, step)
 
     # Generate batches
     batches = utils.batch_iter(
